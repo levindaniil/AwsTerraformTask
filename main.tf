@@ -2,6 +2,52 @@ provider "aws" {
     region = "us-east-2"
 }
 
+# API
+
+resource "aws_api_gateway_rest_api" "HelloWorldApi" {
+  name        = "HelloWorldApi"
+  description = "HelloWorld API GET request to heroku"
+}
+
+resource "aws_api_gateway_resource" "ApiResource" {
+  rest_api_id = aws_api_gateway_rest_api.HelloWorldApi.id
+  parent_id   = aws_api_gateway_rest_api.HelloWorldApi.root_resource_id
+  path_part   = "hello"
+}
+
+resource "aws_api_gateway_method" "ApiMethod" {
+  rest_api_id   = aws_api_gateway_rest_api.HelloWorldApi.id
+  resource_id   = aws_api_gateway_resource.ApiResource.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "ApiIntegration" {
+  rest_api_id = aws_api_gateway_rest_api.HelloWorldApi.id
+  resource_id = aws_api_gateway_resource.ApiResource.id
+  http_method = aws_api_gateway_method.ApiMethod.http_method
+  integration_http_method = "GET"
+  type = "HTTP_PROXY"
+  uri = "https://painteger.herokuapp.com/hello"
+}
+
+resource "aws_api_gateway_deployment" "ApiDeployment" {
+  depends_on = [aws_api_gateway_integration.ApiIntegration]
+
+  rest_api_id = aws_api_gateway_rest_api.HelloWorldApi.id
+  stage_name  = "dev"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+
+output "gateway_link" {
+  value = "${aws_api_gateway_deployment.ApiDeployment.invoke_url}/${aws_api_gateway_resource.ApiResource.path_part}"
+  description = "HelloWorld API request URL"
+}
+
 # DATABASE
 
 resource "aws_db_instance" "mysqldb" {
@@ -119,8 +165,3 @@ output "dns_name" {
     value = aws_elb.elb_example.dns_name
     description = "DNS name"
 }
-
-
-
-
-
